@@ -31,12 +31,13 @@ socketio = SocketIO(app, async_mode=async_mode)
 websocket_thread = None
 websocket_thread_lock = Lock()
 
-GFSHOST = "192.168.0.160" # "192.168.0.160"
+# GFSHOST = "192.168.0.160" # "192.168.0.160"
+GFSHOST = "localhost" # "192.168.0.160"
 GFSPORT = 5000
 TYPE="ProxmoxMachineTemplate"
 
 LISTENERADDR = "0.0.0.0"
-LISTENERPORT = 5002
+LISTENERPORT = 5005
 
 state = {
     "GFSHOST": GFSHOST, 
