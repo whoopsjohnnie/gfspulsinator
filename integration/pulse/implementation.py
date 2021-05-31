@@ -21,7 +21,7 @@ GFSAPI_ALL_INSTANCES_OF_TYPE = GFSAPI + "/api/v1.0/gfs1/vertex?label={type}"
 
 GFSAPI_GRAPHQL_URL = GFSAPI + "/gfs1/graphql"
 gfs_gqlclient = GraphqlClient(endpoint=GFSAPI_GRAPHQL_URL)
-from gfsgql import GFSGQL
+# from gfsgql import GFSGQL
 
 def current_sec_time():
     return round(time.time())
@@ -46,14 +46,7 @@ def link_handler(statedata):
 # 🧐 🧐 🧐 🧐         Queries           🧐 🧐 🧐 🧐
 #########################################################
 
-GET_ALL_TYPES = """
-query allTypes {
-  types {
-    id,
-    name
-  } 
-}
-"""
+GET_ALL_TYPES = "query allTypes {  types {    id,    name  } }"
 
 GET_INSTANCES_BY_TYPE = GFSAPI + "/api/v1.0/gfs1/vertex?label={type}"
 
@@ -159,12 +152,18 @@ def poll(response):
 def pulse_worker(query):
     try:
         polling2.poll(
-            lambda: requests.post(GFSAPI_GRAPHQL_URL, 
-            verify=False,
-            json={'query': GET_ALL_TYPES}),
+            lambda: requests.post(
+                GFSAPI_GRAPHQL_URL, 
+                verify=False,
+                json={
+                    "query": GET_ALL_TYPES,
+                    "variables": {}
+                }
+            ),
             check_success=poll,
             step=1,
-            poll_forever=True)
+            poll_forever=True
+        )
     except polling2.TimeoutException as te:
         while not te.values.empty():
         # Print all of the values that did not meet the exception
