@@ -102,26 +102,27 @@ def poll(response):
             GET_INSTANCES_BY_TYPE.format(
                 type=type['name']
             ), 
-            verify=False)
+            verify=False
+        )
         instances_vertex_dict = json.loads(instances_retval.content)
         # API vertex endpoint returns instances OR 'message':'notfound' then skip --
         if 'message' in instances_vertex_dict:
             continue
 
         for instance in instances_vertex_dict:
-            instance = instance['@value']['properties']
+            instance = instance.get('@value', {}).get('properties', {})
             print ("Candidate: {name}".format(
-                name = instance['name']
+                name = instance.get('name')
             ))
             # print (instance)
 
             if not 'status' in instance:
-                print ("No status property found in '{name}', skipping.".format(name = instance['name']))
+                print ("No status property found in '{name}', skipping.".format(name = instance.get('name')))
                 continue
 
-            delta = current_sec_time() - int(instance['lastPulseModifiedTime']['@value'])
-            timeout_policy = delta > int(instance['statusTimeoutSecs']['@value'])
-            print ('timeout_policy for {name}: {timeout_policy}'.format(name = instance['name'], timeout_policy = timeout_policy))
+            delta = current_sec_time() - int(instance.get('lastPulseModifiedTime', {}).get('@value', 0))
+            timeout_policy = delta > int(instance.get('statusTimeoutSecs', {}).get('@value', 0))
+            print ('timeout_policy for {name}: {timeout_policy}'.format(name = instance.get('name'), timeout_policy = timeout_policy))
 
             status = "PENDING"
             if (timeout_policy):
@@ -132,7 +133,7 @@ def poll(response):
                 type = type['name'])
             )
             update_variables = log( UPDATE_STATUS_VARIABLES.format(
-                id = instance['id']['@value'],
+                id = instance.get('id', {}).get('@value'),
                 status = status,
                 lastPulseModifiedTime = current_sec_time())
             )
