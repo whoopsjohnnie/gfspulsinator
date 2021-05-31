@@ -64,7 +64,11 @@ def link_handler(statedata):
 # 🧐 🧐 🧐 🧐         Queries           🧐 🧐 🧐 🧐
 #########################################################
 
-GET_ALL_TYPES = "query allTypes {  types {    id,    name  } }"
+# 
+# The below gql client query call does not need a query,
+# it constructs its own based on the type
+# 
+# GET_ALL_TYPES = "query allTypes {  types {    id,    name  } }"
 
 GET_INSTANCES_BY_TYPE = GFSAPI + "/api/v1.0/gfs1/vertex?label={type}"
 
@@ -116,8 +120,12 @@ def poll(response):
     global tick 
     tick = tick + 1
 
-    response_dict = json.loads(response.text)
-    types = response_dict['data']['types']
+    # 
+    # The below gql client query call returns parsed JSON
+    # 
+    # response_dict = json.loads(response.text)
+    # types = response_dict['data']['types']
+    types = response
     for type in types:
         print ("name: " + type['name'])
         instances_retval = requests.get(
@@ -207,13 +215,30 @@ def poll(response):
 def pulse_worker(query):
     try:
         polling2.poll(
-            lambda: requests.post(
-                GFSAPI_GRAPHQL_URL, 
-                verify=False,
-                json={
-                    "query": GET_ALL_TYPES,
-                    "variables": {}
-                }
+
+            # lambda: requests.post(
+            #     GFSAPI_GRAPHQL_URL, 
+            #     verify=False,
+            #     json={
+            #         "query": GET_ALL_TYPES,
+            #         "variables": {}
+            #     }
+            # ),
+
+            # 
+            # I replaced all of the above with this query wrapper
+            # 
+            # resource: The type of the instance we want to update
+            # arguments: The properties of the type, along with their data types
+            # variables: The data that for each property we want to set
+            # fields: The set of fields to return when the call is done
+            # 
+            lambda: gfs_gqlclient.query(
+                resource = "type", 
+                fields = [
+                    "id", 
+                    "name"
+                ]
             ),
             check_success=poll,
             step=1,
