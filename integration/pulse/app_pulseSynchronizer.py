@@ -74,6 +74,17 @@ def callback(data = {}):
     typedata = data.get("data", {}).get(TYPE, {})
     typenode = typedata.get("node", {})
 
+    if data and "message" in data:
+        print("")
+        print(" *** ")
+        print(" *** GFS GraphQL subscription callback message. Please make sure TYPE " + TYPE + " exists.")
+        print(data.get("message"))
+        print(" *** ")
+        print(" *** ")
+        print(" ")
+        # quit()
+        exit()
+
     # print(" ")
     # print(" New " + TYPE + " event: ")
     # print(" Event: " + str( typedata.get("event", "")) )
