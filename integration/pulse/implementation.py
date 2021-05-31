@@ -1,10 +1,22 @@
+
+import logging
+
+# 
+# Enable DEBUG here for detailed GraphQL logging
+# 
+logging.basicConfig(level=logging.WARNING)
+# logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.DEBUG)
+
 import requests
 import polling2
 import json
 import threading
 import time
 from requests_toolbelt.utils import dump
-from python_graphql_client import GraphqlClient
+
+# from python_graphql_client import GraphqlClient
+from gfsgql import GFSGQL
 
 requests.packages.urllib3.disable_warnings() 
 
@@ -20,8 +32,14 @@ GFSAPI_ALL_NODES_URL = GFSAPI + "/api/v1.0/gfs1/graph"
 GFSAPI_ALL_INSTANCES_OF_TYPE = GFSAPI + "/api/v1.0/gfs1/vertex?label={type}"
 
 GFSAPI_GRAPHQL_URL = GFSAPI + "/gfs1/graphql"
-gfs_gqlclient = GraphqlClient(endpoint=GFSAPI_GRAPHQL_URL)
-# from gfsgql import GFSGQL
+# gfs_gqlclient = GraphqlClient(endpoint=GFSAPI_GRAPHQL_URL)
+
+gfs_gqlclient = GFSGQL(
+    gfs_host = GFSAPI_HOST, # gfs_host,
+    gfs_port = str(GFSAPI_PORT), # gfs_port,
+    gfs_username = None, # gfs_username,
+    gfs_password = None, # gfs_password,
+)
 
 def current_sec_time():
     return round(time.time())
@@ -50,36 +68,40 @@ GET_ALL_TYPES = "query allTypes {  types {    id,    name  } }"
 
 GET_INSTANCES_BY_TYPE = GFSAPI + "/api/v1.0/gfs1/vertex?label={type}"
 
-UPDATE_STATUS_QUERY = """
-mutation updateStatus
-(
-        $id:String!,
-        $status: String,
-        $lastPulseModifiedTime: Int,
-    ) 
-{{                
-    update{type} (
-        id:$id,
-        status:$status,
-        lastPulseModifiedTime:$lastPulseModifiedTime,
-        ) {{
-        instance {{
-            id,
-            status,
-            lastPulseModifiedTime,
-        }},              
-        ok
-    }}
-}}
-"""
+# 
+# The below gql client update call does not need a query,
+# it constructs its own based on the type
+# 
+# UPDATE_STATUS_QUERY = """
+# mutation updateStatus
+# (
+#         $id:String!,
+#         $status: String,
+#         $lastPulseModifiedTime: Int,
+#     ) 
+# {{                
+#     update{type} (
+#         id:$id,
+#         status:$status,
+#         lastPulseModifiedTime:$lastPulseModifiedTime,
+#         ) {{
+#         instance {{
+#             id,
+#             status,
+#             lastPulseModifiedTime,
+#         }},              
+#         ok
+#     }}
+# }}
+# """
 
-UPDATE_STATUS_VARIABLES = """
-{{
-  "id": {id},
-  "status": "{status}",
-  "lastPulseModifiedTime": {lastPulseModifiedTime}
-}}
-"""
+# UPDATE_STATUS_VARIABLES = """
+# {{
+#   "id": {id},
+#   "status": "{status}",
+#   "lastPulseModifiedTime": {lastPulseModifiedTime}
+# }}
+# """
 
 #########################################################
 # 🔥 🔥 🔥 🔥 🔥    The Pulsinator    🔥 🔥 🔥 🔥 🔫
@@ -129,19 +151,51 @@ def poll(response):
                 # exceeded timeout, the agent has failed us all.
                 status = "FAILING"
 
-            update_query = log( UPDATE_STATUS_QUERY.format(
-                type = type['name'])
-            )
-            update_variables = log( UPDATE_STATUS_VARIABLES.format(
-                id = instance.get('id', {}).get('@value'),
-                status = status,
-                lastPulseModifiedTime = current_sec_time())
-            )
+            # 
+            # The below gql client update call does not need a query,
+            # it constructs its own based on the type
+            # 
+            # update_query = log( UPDATE_STATUS_QUERY.format(
+            #     type = type['name'])
+            # )
+            # update_variables = log( UPDATE_STATUS_VARIABLES.format(
+            #     id = instance.get('id', {}).get('@value'),
+            #     status = status,
+            #     lastPulseModifiedTime = current_sec_time())
+            # )
 
             retval = log(
-                gfs_gqlclient.execute(
-                    query = update_query,
-                    variables = update_variables
+
+                # gfs_gqlclient.execute(
+                #     query = update_query,
+                #     variables = update_variables
+                # )
+
+                # 
+                # I replaced all of the above with this update wrapper
+                # 
+                # resource: The type of the instance we want to update
+                # arguments: The properties of the type, along with their data types
+                # variables: The data that for each property we want to set
+                # fields: The set of fields to return when the call is done
+                # 
+                gfs_gqlclient.update(
+                    resource = type['name'], 
+                    arguments = {
+                        "id": "String!", 
+                        "status": "String", 
+                        "lastPulseModifiedTime": "Int",
+                    }, 
+                    variables = {
+                        "id": instance.get('id', {}).get('@value'), 
+                        "status": status,
+                        "lastPulseModifiedTime": current_sec_time()
+                    }, 
+                    fields = [
+                        "id", 
+                        "status", 
+                        "lastPulseModifiedTime"
+                    ]
                 )
             )
 
