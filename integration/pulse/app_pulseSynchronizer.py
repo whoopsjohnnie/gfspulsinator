@@ -70,8 +70,6 @@ client = GraphqlClient(
 )
 
 def callback(data = {}):
-    print (data)
-    return
 
     typedata = data.get("data", {}).get(TYPE, {})
     typenode = typedata.get("node", {})
