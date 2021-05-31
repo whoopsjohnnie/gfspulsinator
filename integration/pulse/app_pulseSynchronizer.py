@@ -44,7 +44,7 @@ state = {
     "GFSPORT": GFSPORT, 
     "endpoint": "ws://" + GFSHOST + ":" + str(GFSPORT) + "/gfs1/graphql/subscriptions", 
     "active": False, 
-     "type": TYPE, 
+    "type": TYPE, 
     "query": """subscription """ + TYPE + """Subscriber {
   """ + TYPE + """ {
     event, 
@@ -141,10 +141,10 @@ def websocket_background_thread():
     state["active"] = False
 
 def launch_websocket_background_thread():
-    global thread
+    global websocket_thread
     with websocket_thread_lock:
         if websocket_thread is None:
-            thread = socketio.start_background_task(websocket_background_thread)
+            websocket_thread = socketio.start_background_task(websocket_background_thread)
 
 launch_websocket_background_thread()
 
