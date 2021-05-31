@@ -34,7 +34,7 @@ websocket_thread_lock = Lock()
 GFSHOST = "192.168.0.160" # "192.168.0.160"
 #GFSHOST = "localhost" # "192.168.0.160"
 GFSPORT = 5000
-TYPE="ProxmoxMachine"
+TYPE = "ProxmoxMachineTemplate"
 
 LISTENERADDR = "0.0.0.0"
 LISTENERPORT = 5005
@@ -70,21 +70,23 @@ client = GraphqlClient(
 )
 
 def callback(data = {}):
+    print (data)
+    return
 
     typedata = data.get("data", {}).get(TYPE, {})
     typenode = typedata.get("node", {})
 
-    print(" ")
-    print(" New " + TYPE + " event: ")
-    print(" Event: " + str( typedata.get("event", "")) )
-    print(" Id: " + str( typedata.get("id", "")) )
-    print(" Label: " + str( typedata.get("label", "")) )
-    print(" SourceId: " + str( typedata.get("sourceid", "")) )
-    print(" SourceLabel: " + str( typedata.get("sourceid", "")) )
-    print(" TargetId: " + str( typedata.get("targetid", "")) )
-    print(" TargetLabel: " + str( typedata.get("targetlabel", "")) )
-    print(" Chain: " + str( typedata.get("chain", "")) )
-    print(" ")
+    # print(" ")
+    # print(" New " + TYPE + " event: ")
+    # print(" Event: " + str( typedata.get("event", "")) )
+    # print(" Id: " + str( typedata.get("id", "")) )
+    # print(" Label: " + str( typedata.get("label", "")) )
+    # print(" SourceId: " + str( typedata.get("sourceid", "")) )
+    # print(" SourceLabel: " + str( typedata.get("sourceid", "")) )
+    # print(" TargetId: " + str( typedata.get("targetid", "")) )
+    # print(" TargetLabel: " + str( typedata.get("targetlabel", "")) )
+    # print(" Chain: " + str( typedata.get("chain", "")) )
+    # print(" ")
 
     event = typedata.get("event", None)
     id = typedata.get("id", None)
