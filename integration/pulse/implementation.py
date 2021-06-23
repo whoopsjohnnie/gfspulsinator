@@ -1,4 +1,5 @@
 import logging
+from os import stat
 
 # 
 # Enable DEBUG here for detailed GraphQL logging
@@ -24,7 +25,14 @@ from gfsgql import GFSGQL
 requests.packages.urllib3.disable_warnings() 
 
 AGENT_ID='PULSINATOR_AGENT'
-PULSE_POLL_STEP=3
+PULSE_POLL_STEP=1
+
+STATUS_FAILING = "FAILING"
+STATUS_UP_SYNCRONIZED = "UP"
+STATUS_PENDING_UPDATE = "PENDING"
+STATUS_LAGGING_UPDATE = "LAGGING"
+
+STEP_CALC_PAD_FACTOR = 1.5
 
 GFSAPI_HOST = "192.168.56.60" # "192.168.0.160"
 GFSAPI_PORT = 5000
@@ -77,6 +85,55 @@ def log(string):
     # print (string)
     return string
 
+def pulse_query(id, resource, status):
+    if (status != None):
+        retval = log (
+            gfs_gqlclient.update(
+                resource = resource, 
+                arguments = {
+                    "id": "String!", 
+                    "status": "String", 
+                    "lastPulseModifiedTime": "Int",
+                    'lastAgentUpdateID': 'String'
+                },
+                variables = {
+                    "id": id, 
+                    "status": status,
+                    "lastPulseModifiedTime": current_sec_time(),
+                    "lastAgentUpdateID": AGENT_ID
+                }, 
+                fields = [
+                    "id", 
+                    "status", 
+                    "lastStatusModifiedTime",
+                    "lastPulseModifiedTime"
+                ]
+            )
+        )
+    else:
+        retval = log (
+            gfs_gqlclient.update(
+                resource = resource, 
+                arguments = {
+                    "id": "String!", 
+                    "lastPulseModifiedTime": "Int",
+                    'lastAgentUpdateID': 'String'
+                },
+                variables = {
+                    "id": id, 
+                    "lastPulseModifiedTime": current_sec_time(),
+                    "lastAgentUpdateID": AGENT_ID
+                }, 
+                fields = [
+                    "id", 
+                    "status", 
+                    "lastStatusModifiedTime",
+                    "lastPulseModifiedTime"
+                ]
+            )
+        )
+    return retval
+
 tick = 0
 def poll(response):
     global tick 
@@ -85,8 +142,6 @@ def poll(response):
     status_not_found = 0
 
     types = response
-
-    tstamp = time.strftime('%X %x %Z')
 
     print ("")
     # print ("---[" + str(tick) + " @ " + tstamp + "] ------------------------------------")
@@ -114,75 +169,60 @@ def poll(response):
                 status_not_found = status_not_found + 1
                 continue
 
-            print ("---[" + str(tick) + " @ " + tstamp + "]--[ status-less: " + str(status_not_found) + " ]----------------------------------")
-            print ("⏩ " + instance.get('name') + " [" + str(type['name']) + "]")
+            tstamp = time.strftime('%X %x %Z')
+            id = instance.get('id', {}).get('@value')
+            status = instance['status']
+            if (status == STATUS_UP_SYNCRONIZED):  
+                status_output="🟩 UP"
+            elif (status == STATUS_LAGGING_UPDATE):
+                status_output = "⚠️  LAGGING"
+            elif (status == STATUS_FAILING):
+                status_output = "🤬 FAILING"
+            else: 
+                status_output = status + " UKNOWN STATE"
+
+            status_timeout = int(instance.get('statusTimeoutSecs', {}).get('@value', 0))
             pulse_delta_secs = current_sec_time() - int(instance.get('lastPulseModifiedTime', {}).get('@value', 0))
             status_delta_secs = current_sec_time() - int(instance.get('lastStatusModifiedTime', {}).get('@value', 0))
             step = int(instance.get('step', {}).get('@value', 0))
-            print ("   [ △ pulse_delta: " + str(pulse_delta_secs) + " ]  [ △ status_delta: " + str(status_delta_secs) + " ] [ ✳️  step: " + str(step) + " ]")
+            print ("---[" + str(tick) + " @ " + tstamp + "]--[ status-less: " + str(status_not_found) + " ]-------------------------------")
+            print ("🔭 " + instance.get('name') + " [" + str(type['name']) + "]" )
+            print ("   [ current status: " + status_output + " ]   [ 💓 last pulse: " + str(pulse_delta_secs) + "s ]   [ 💤 step: " + str(step) + "s ]   [ △ last status: " + str(status_delta_secs) + "s ]   [ ⏰  timeout: " + str(status_timeout) +"s ]")
             
             # skip if the step time is larger than the time 
-            # elapsed since last pulse
-            if (pulse_delta_secs < step):
-                print ("  ⚪ Not pulsing (step delay) ")
+            # elapsed since last pulse, or if its already failing to 
+            # shortcut recovery time
+            if ((pulse_delta_secs < step) and (status != 'FAILING')):
+                print ("  💤  Not pulsing ... [following step delay: " + str(step - pulse_delta_secs) + "s remaining]")
                 print ('')
                 continue
-            else: 
-                print ("  ✅ Pulsing ")
-
-            status = "PENDING"
-            if (status_delta_secs > int(instance.get('statusTimeoutSecs', {}).get('@value', 0))):
-                # exceeded timeout, the agent has failed us all.
-                print ("    🤬 FAILING (Updating Status!)")
-                status = "FAILING"
-                retval = log(
-                    gfs_gqlclient.update(
-                        resource = type['name'], 
-                        arguments = {
-                            "id": "String!", 
-                            "status": "String", 
-                            "lastPulseModifiedTime": "Int",
-                            'lastAgentUpdateID': 'String'
-                        },
-                        variables = {
-                            "id": instance.get('id', {}).get('@value'), 
-                            "status": status,
-                            "lastPulseModifiedTime": current_sec_time(),
-                            "lastAgentUpdateID": AGENT_ID
-                        }, 
-                        fields = [
-                            "id", 
-                            "status", 
-                            "lastStatusModifiedTime",
-                            "lastPulseModifiedTime"
-                        ]
-                    )
-                )
-                print ("      " + str(retval))
             else:
-                print ("    ⏭️  PENDING Update (Updating Only lastPulseModifiedTime)")
-                retval = log(
-                    gfs_gqlclient.update(
-                        resource = type['name'], 
-                        arguments = {
-                            "id": "String!", 
-                            "lastPulseModifiedTime": "Int",
-                            'lastAgentUpdateID': 'String'
-                        },
-                        variables = {
-                            "id": instance.get('id', {}).get('@value'), 
-                            "lastPulseModifiedTime": current_sec_time(),
-                            "lastAgentUpdateID": AGENT_ID
-                        }, 
-                        fields = [
-                            "id", 
-                            "status",
-                            "lastStatusModifiedTime",
-                            "lastPulseModifiedTime"
-                        ]
-                    )
-                )
-                print ("      " + str(retval))
+                print ("   〽️ Pulsing     ...")
+
+            pulse = None
+            if (status_delta_secs > status_timeout):
+                # exceeded timeout, the agent has failed us all.
+                print ("      [ Updating Status: " + STATUS_FAILING + " and lastPulseModifiedTime ]")
+                status = STATUS_FAILING
+                pulse = pulse_query(
+                    id=id, 
+                    resource=type['name'], 
+                    status=status)
+            elif (status_delta_secs > step * STEP_CALC_PAD_FACTOR):
+                # exceeded timeout, the agent has failed us all.
+                print ("      [ Updating Status: " + STATUS_LAGGING_UPDATE + " and lastPulseModifiedTime ]")
+                status = STATUS_LAGGING_UPDATE
+                pulse = pulse_query(
+                    id=id, 
+                    resource=type['name'], 
+                    status=status)
+            else:
+                print ("      [ Updating lastPulseModifiedTime ]")
+                pulse = pulse_query(
+                    id=id, 
+                    resource=type['name'], 
+                    status=None)
+            print ("      " + str(pulse))
             print ('')
 
     # print ("Status not found on #nodes: " + str(status_not_found))
