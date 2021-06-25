@@ -25,7 +25,7 @@ from gfsgql import GFSGQL
 requests.packages.urllib3.disable_warnings() 
 
 AGENT_ID='PULSINATOR_AGENT'
-PULSE_POLL_STEP=1
+PULSE_POLL_STEP=3
 
 STATUS_FAILING = "FAILING"
 STATUS_UP_SYNCRONIZED = "UP"
@@ -168,9 +168,6 @@ def poll(response):
                 log ("No status property found in '{name}', skipping.".format(name = instance.get('name')))
                 status_not_found = status_not_found + 1
                 continue
-
-            tstamp = time.strftime('%X %x %Z')
-            id = instance.get('id', {}).get('@value')
             status = instance['status']
             if (status == STATUS_UP_SYNCRONIZED):  
                 status_output="🟩 UP"
@@ -181,48 +178,51 @@ def poll(response):
             else: 
                 status_output = status + " UKNOWN STATE"
 
+            tstamp = time.strftime('%X %x %Z')
+            id = instance.get('id', {}).get('@value')            
             status_timeout = int(instance.get('statusTimeoutSecs', {}).get('@value', 0))
             pulse_delta_secs = current_sec_time() - int(instance.get('lastPulseModifiedTime', {}).get('@value', 0))
             status_delta_secs = current_sec_time() - int(instance.get('lastStatusModifiedTime', {}).get('@value', 0))
             step = int(instance.get('step', {}).get('@value', 0))
-            print ("---[" + str(tick) + " @ " + tstamp + "]--[ status-less: " + str(status_not_found) + " ]-------------------------------")
-            print ("🔭 " + instance.get('name') + " [" + str(type['name']) + "]" )
-            print ("   [ current status: " + status_output + " ]   [ 💓 last pulse: " + str(pulse_delta_secs) + "s ]   [ 💤 step: " + str(step) + "s ]   [ △ last status: " + str(status_delta_secs) + "s ]   [ ⏰  timeout: " + str(status_timeout) +"s ]")
+ 
+            print ("---[" + str(tick) + " @ " + tstamp + "]--[ status-less GFS instances: " + str(status_not_found) + " ]-------------------------------")
+            print ("🔭   [ current: " + status_output + " ]   " + instance.get('name') + "  [ " + str(type['name']) + " ]")
+            print ("      [ 💓 last pulse: " + str(pulse_delta_secs) + "s ] [ 💤 step: " + str(step) + "s ] [ △ last status: " + str(status_delta_secs) + "s ] [ ⏰  timeout: " + str(status_timeout) +"s ]")
             
             # skip if the step time is larger than the time 
             # elapsed since last pulse, or if its already failing to 
             # shortcut recovery time
-            if ((pulse_delta_secs < step) and (status != 'FAILING')):
-                print ("  💤  Not pulsing ... [following step delay: " + str(step - pulse_delta_secs) + "s remaining]")
+            if ((pulse_delta_secs < step) and (status != STATUS_FAILING) and (status != STATUS_LAGGING_UPDATE)):
+                print ("  💤  Not pulsing ... (following step delay: " + str(step - pulse_delta_secs) + "s remaining)")
                 print ('')
                 continue
             else:
                 print ("   〽️ Pulsing     ...")
 
             pulse = None
-            if (status_delta_secs > status_timeout):
+            if (status_delta_secs >= status_timeout):
                 # exceeded timeout, the agent has failed us all.
-                print ("      [ Updating Status: " + STATUS_FAILING + " and lastPulseModifiedTime ]")
+                print ("      --> Updating: status = " + STATUS_FAILING + " and lastPulseModifiedTime")
                 status = STATUS_FAILING
                 pulse = pulse_query(
                     id=id, 
                     resource=type['name'], 
                     status=status)
-            elif (status_delta_secs > step * STEP_CALC_PAD_FACTOR):
+            elif (status_delta_secs > step):
                 # exceeded timeout, the agent has failed us all.
-                print ("      [ Updating Status: " + STATUS_LAGGING_UPDATE + " and lastPulseModifiedTime ]")
+                print ("      --> Updating: status = " + STATUS_LAGGING_UPDATE + " and lastPulseModifiedTime")
                 status = STATUS_LAGGING_UPDATE
                 pulse = pulse_query(
                     id=id, 
                     resource=type['name'], 
                     status=status)
             else:
-                print ("      [ Updating lastPulseModifiedTime ]")
+                print ("      --> Updating lastPulseModifiedTime")
                 pulse = pulse_query(
                     id=id, 
                     resource=type['name'], 
                     status=None)
-            print ("      " + str(pulse))
+            # print ("      " + str(pulse))
             print ('')
 
     # print ("Status not found on #nodes: " + str(status_not_found))
