@@ -1,5 +1,5 @@
 import logging
-from os import stat
+import os
 
 # 
 # Enable DEBUG here for detailed GraphQL logging
@@ -22,9 +22,9 @@ from requests_toolbelt.utils import dump
 # from python_graphql_client import GraphqlClient
 from gfsgql import GFSGQL
 
-requests.packages.urllib3.disable_warnings() 
+requests.packages.urllib3.disable_warnings()
 
-AGENT_ID='PULSINATOR_AGENT'
+AGENT_ID='__PULSE_AGENT'
 PULSE_POLL_STEP=3
 
 STATUS_FAILING = "FAILING"
@@ -34,16 +34,13 @@ STATUS_LAGGING_UPDATE = "LAGGING"
 
 STEP_CALC_PAD_FACTOR = 1.5
 
-GFSAPI_HOST = "192.168.86.59" # "192.168.0.160"
-GFSAPI_PORT = 5000
+# GFSAPI_HOST = "192.168.86.59" # "192.168.0.160"
+# GFSAPI_PORT = 5000
+GFSAPI_HOST = os.getenv('GFSAPI_HOST')
+GFSAPI_PORT = os.getenv('GFSAPI_PORT')
 
 # GFSAPI = "https://" + GFSAPI_HOST + ":" + str(GFSAPI_PORT)
 GFSAPI = "http://" + GFSAPI_HOST + ":" + str(GFSAPI_PORT)
-
-GFSAPI_TEMPLATE_URL = GFSAPI + "/api/v1.0/gfs1/context/{GFSID}"
-GFSAPI_ALL_NODES_URL = GFSAPI + "/api/v1.0/gfs1/graph"
-GFSAPI_ALL_INSTANCES_OF_TYPE = GFSAPI + "/api/v1.0/gfs1/vertex?label={type}"
-GFSAPI_GRAPHQL_URL = GFSAPI + "/gfs1/graphql"
 
 gfs_gqlclient = GFSGQL(
     gfs_host = GFSAPI_HOST, # gfs_host,
@@ -76,6 +73,10 @@ def link_handler(statedata):
 #########################################################
 
 GET_INSTANCES_BY_TYPE = GFSAPI + "/api/v1.0/gfs1/vertex?label={type}"
+GFSAPI_TEMPLATE_URL = GFSAPI + "/api/v1.0/gfs1/context/{GFSID}"
+GFSAPI_ALL_NODES_URL = GFSAPI + "/api/v1.0/gfs1/graph"
+GFSAPI_ALL_INSTANCES_OF_TYPE = GFSAPI + "/api/v1.0/gfs1/vertex?label={type}"
+GFSAPI_GRAPHQL_URL = GFSAPI + "/gfs1/graphql"
 
 #########################################################
 # 🔥 🔥 🔥 🔥 🔥    The Pulsinator    🔥 🔥 🔥 🔥 🔫
@@ -170,7 +171,7 @@ def poll(response):
                 continue
             status = instance['status']
             if (status == STATUS_UP_SYNCRONIZED):  
-                status_output="🟩 UP"
+                status_output = "🟩 UP"
             elif (status == STATUS_LAGGING_UPDATE):
                 status_output = "⚠️  LAGGING"
             elif (status == STATUS_FAILING):
@@ -188,7 +189,7 @@ def poll(response):
             print ("---[" + str(tick) + " @ " + tstamp + "]--[ status-less GFS instances: " + str(status_not_found) + " ]-------------------------------")
             print ("🔭   [ current: " + status_output + " ]   " + instance.get('name') + "  [ " + str(type['name']) + " ]")
             print ("      [ 💓 last pulse: " + str(pulse_delta_secs) + "s ] [ 💤 step: " + str(step) + "s ] [ △ last status: " + str(status_delta_secs) + "s ] [ ⏰  timeout: " + str(status_timeout) +"s ]")
-            
+
             # skip if the step time is larger than the time 
             # elapsed since last pulse, or if its already failing to 
             # shortcut recovery time
@@ -208,7 +209,7 @@ def poll(response):
                     id=id, 
                     resource=type['name'], 
                     status=status)
-            elif (status_delta_secs > step):
+            elif (status_delta_secs > (step * STEP_CALC_PAD_FACTOR)):
                 # exceeded timeout, the agent has failed us all.
                 print ("      --> Updating: status = " + STATUS_LAGGING_UPDATE + " and lastPulseModifiedTime")
                 status = STATUS_LAGGING_UPDATE

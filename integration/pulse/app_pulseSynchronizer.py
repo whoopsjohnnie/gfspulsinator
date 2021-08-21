@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 from threading import Lock
 
@@ -31,20 +32,21 @@ socketio = SocketIO(app, async_mode=async_mode)
 websocket_thread = None
 websocket_thread_lock = Lock()
 
-GFSHOST = "192.168.0.216" # "192.168.0.160"
-#GFSHOST = "localhost" # "192.168.0.160"
-GFSPORT = 5000
+# GFSAPI_HOST = "192.168.0.216" # "192.168.0.160"
+# #GFSHOST = "localhost" # "192.168.0.160"
+# GFSAPI_PORT = 5000
+GFSAPI_HOST = os.getenv('GFSAPI_HOST')
+GFSAPI_PORT = os.getenv('GFSAPI_PORT')
+
 TYPE = ""
 
 LISTENERADDR = "0.0.0.0"
 LISTENERPORT = 5005
 
-print (GFSHOST)
-
 state = {
-    "GFSHOST": GFSHOST, 
-    "GFSPORT": GFSPORT, 
-    "endpoint": "ws://" + GFSHOST + ":" + str(GFSPORT) + "/gfs1/graphql/subscriptions", 
+    "GFSHOST": GFSAPI_HOST, 
+    "GFSPORT": GFSAPI_PORT, 
+    "endpoint": "ws://" + GFSAPI_HOST + ":" + str(GFSAPI_PORT) + "/gfs1/graphql/subscriptions", 
     "active": False, 
     "type": TYPE, 
     "query": """subscription """ + TYPE + """Subscriber {
