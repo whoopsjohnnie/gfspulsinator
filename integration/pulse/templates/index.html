@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>{{type}} event listener</title>
+	<link 
+        rel="stylesheet" 
+        href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css"
+    >
+	<script 
+        src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" 
+        integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" 
+        crossorigin="anonymous">
+    </script>
+    <script 
+        src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.4/socket.io.js" 
+        integrity="sha512-aMGMvNYu8Ue4G+fHa359jcPb1u+ytAF+P2SCb+PxrjCdO3n3ZTxJ30zuH39rimUggmTwmh2u7wvQsDTHESnmfQ==" 
+        crossorigin="anonymous">
+    </script>
+    <script type="text/javascript" charset="utf-8">
+        $(document).ready(function() {
+            // Connect to the Socket.IO server.
+            // The connection URL has the following format, relative to the current page:
+            //     http[s]://<domain>:<port>[/<namespace>]
+            var socket = io();
+
+            // Event handler for new connections.
+            // The callback function is invoked when a connection with the
+            // server is established.
+            socket.on('connect', function() {
+                socket.emit(
+                    'fromclient', {
+                        data: 'Client connected!'
+                    }
+                );
+            });
+
+            socket.on('response', function(msg, callback) {
+                
+            });
+
+            socket.on('update', function(msg, callback) {
+                console.log("Update: ");
+                console.log(msg);
+                node = $("<li class=\"list-group-item active\">" + 
+                    "<p>Event: " + msg.event + ", ID: " + msg.id + ", Label: " + msg.label + "</p>" + 
+                    "<p>Source ID: " + msg.sourceid + ", Target ID: " + msg.targetid + "</p>" + 
+                    "<p>Chain: " + msg.chain + "</p>" + 
+                    "<p>" + msg.description + "</p>" + 
+                "</li>");
+                //$('#modellist').append(node);
+                $('#modellist').prepend(node);
+            });
+
+        });
+    </script>
+
+</head>
+<body>
+	<div class="container">
+		<h1>{{type}} event listener</h1>
+        <div class="alert alert-{{status}}" role="alert">
+            API: {{GFSHOST}}:{{GFSPORT}}, active: {{active}}
+        </div>
+        <ul id="modellist" class="list-group">
+        {% for model in models %}
+            <li class="list-group-item">
+                <p>Event: {{model.event}}, ID: {{model.id}}, Label: {{model.label}}</p> 
+                <p>Source ID: {{model.sourceid}}, Target ID: {{model.targetid}}</p> 
+                <p>Chain: {{model.chain}}</p> 
+                <p>{{model.description}}</p> 
+            </li>
+        {% endfor %}
+        </ul>
+	</div>
+</body>
+</html>
