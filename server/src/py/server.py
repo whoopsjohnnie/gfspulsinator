@@ -1,221 +1,293 @@
-import asyncio
+import logging
 import os
 
-from threading import Lock
+# 
+# Enable DEBUG here for detailed GraphQL logging
+# 
+# Need a clever play on 
+# https://matrix.fandom.com/wiki/Electromagnetic_pulse
+# EUP? Electro-Update-Pulse ? :) 
 
-from flask import Flask
-from flask import render_template
-from flask import request
-from flask import Response
+logging.basicConfig(level=logging.WARNING)
+# logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.DEBUG)
 
-from flask_socketio import SocketIO
-from flask_socketio import emit
-from flask_socketio import disconnect
+import requests
+import polling2
+import json
+import threading
+import time
+from requests_toolbelt.utils import dump
 
-from python_graphql_client import GraphqlClient
+# from python_graphql_client import GraphqlClient
+from gfsgql import GFSGQL
 
-# from proxmoxer import ProxmoxAPI
-from implementation import create_handler
-from implementation import update_handler
-from implementation import delete_handler
-from implementation import link_handler
+requests.packages.urllib3.disable_warnings()
 
-# Set this variable to "threading", "eventlet" or "gevent" to test the
-# different async modes, or leave it set to None for the application to choose
-# the best option based on installed packages.
-async_mode = None
+AGENT_ID='__PULSE_AGENT'
+PULSE_POLL_STEP=3
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = 'secret!'
-socketio = SocketIO(app, async_mode=async_mode)
+STATUS_FAILING = "FAILING"
+STATUS_UP_SYNCRONIZED = "UP"
+STATUS_PENDING_UPDATE = "PENDING"
+STATUS_LAGGING_UPDATE = "LAGGING"
 
-websocket_thread = None
-websocket_thread_lock = Lock()
+STEP_CALC_PAD_FACTOR = 1.5
 
-# GFSAPI_HOST = "192.168.0.216" # "192.168.0.160"
-# #GFSHOST = "localhost" # "192.168.0.160"
+# GFSAPI_HOST = "192.168.86.59" # "192.168.0.160"
 # GFSAPI_PORT = 5000
-GFSAPI_HOST = os.getenv('GFSAPI_HOST')
-GFSAPI_PORT = os.getenv('GFSAPI_PORT')
+GFSAPI_HOST = os.getenv('GFSAPI_HOST', "gfsapi")
+GFSAPI_PORT = os.getenv('GFSAPI_PORT', "5000")
 
-TYPE = ""
+# GFSAPI = "https://" + GFSAPI_HOST + ":" + str(GFSAPI_PORT)
+GFSAPI = "http://" + GFSAPI_HOST + ":" + str(GFSAPI_PORT)
 
-LISTENERADDR = "0.0.0.0"
-LISTENERPORT = 5005
-
-state = {
-    "GFSHOST": GFSAPI_HOST, 
-    "GFSPORT": GFSAPI_PORT, 
-    "endpoint": "ws://" + GFSAPI_HOST + ":" + str(GFSAPI_PORT) + "/gfs1/graphql/subscriptions", 
-    "active": False, 
-    "type": TYPE, 
-    "query": """subscription """ + TYPE + """Subscriber {
-  """ + TYPE + """ {
-    event, 
-    id, 
-    label, 
-    sourceid, 
-    sourcelabel, 
-    targetid, 
-    targetlabel, 
-    chain, 
-    node {
-       id,
-       name
-    }
-  }
-}
-""", 
-    "models": []
-}
-
-client = GraphqlClient(
-    endpoint=state.get("endpoint")
+gfs_gqlclient = GFSGQL(
+    gfs_host = GFSAPI_HOST, # gfs_host,
+    gfs_port = str(GFSAPI_PORT), # gfs_port,
+    gfs_username = None, # gfs_username,
+    gfs_password = None, # gfs_password,
 )
 
-def callback(data = {}):
+def current_sec_time():
+    return round(time.time())
 
-    typedata = data.get("data", {}).get(TYPE, {})
-    typenode = typedata.get("node", {})
+#########################################################
+# 🔆 🔆 🔆 🔆    Handler Boilerplate    🔆 🔆 🔆 🔆
+#########################################################
 
-    if data and "message" in data:
-        print("")
-        print(" *** ")
-        print(" *** GFS GraphQL subscription callback message. Please make sure TYPE " + TYPE + " exists.")
-        print(data.get("message"))
-        print(" *** ")
-        print(" *** ")
-        print(" ")
-        # quit()
-        exit()
+def create_handler(statedata):
+    print ("---------Create Handler----------------")
 
-    # print(" ")
-    # print(" New " + TYPE + " event: ")
-    # print(" Event: " + str( typedata.get("event", "")) )
-    # print(" Id: " + str( typedata.get("id", "")) )
-    # print(" Label: " + str( typedata.get("label", "")) )
-    # print(" SourceId: " + str( typedata.get("sourceid", "")) )
-    # print(" SourceLabel: " + str( typedata.get("sourceid", "")) )
-    # print(" TargetId: " + str( typedata.get("targetid", "")) )
-    # print(" TargetLabel: " + str( typedata.get("targetlabel", "")) )
-    # print(" Chain: " + str( typedata.get("chain", "")) )
-    # print(" ")
+def update_handler(statedata):
+    print ("---------Update Handler----------------")
 
-    event = typedata.get("event", None)
-    id = typedata.get("id", None)
-    label = typedata.get("label", None)
-    sourceid = typedata.get("sourceid", None)
-    sourcelabel = typedata.get("sourcelabel", None)
-    targetid = typedata.get("targetid", None)
-    targetlabel = typedata.get("targetlabel", None)
-    chain = ", ".join(typedata.get("chain", []))
+def delete_handler(statedata):
+    print ("---------Delete Handler----------------")
 
-    typenodeid = typenode.get("id")
-    typenodedesc = TYPE + "(" + typenodeid + ")"
-    for key in typenode:
-        typenodedesc += ", " + key + ": " + typenode.get(key, "[NONE]")
+def link_handler(statedata):
+    print ("---------Link Handler------------------")
 
-    statedata = {
-        "event": event,
-        "id": id,
-        "label": label,
-        "sourceid": sourceid,
-        "sourcelabel": sourcelabel,
-        "targetid": targetid,
-        "targetlabel": targetlabel,
-        "chain": chain,
-        "data": typenode,
-        "description": typenodedesc
-    }
+#########################################################
+# 🧐 🧐 🧐 🧐         Queries           🧐 🧐 🧐 🧐
+#########################################################
 
-    socketio.emit(
-        'update', statedata
-    )
+GET_INSTANCES_BY_TYPE = GFSAPI + "/api/v1.0/gfs1/vertex?label={type}"
+GFSAPI_TEMPLATE_URL = GFSAPI + "/api/v1.0/gfs1/context/{GFSID}"
+GFSAPI_ALL_NODES_URL = GFSAPI + "/api/v1.0/gfs1/graph"
+GFSAPI_ALL_INSTANCES_OF_TYPE = GFSAPI + "/api/v1.0/gfs1/vertex?label={type}"
+GFSAPI_GRAPHQL_URL = GFSAPI + "/gfs1/graphql"
 
-    if event == "create_node":
-        create_handler(statedata)
-    elif event == "update_node":
-        update_handler(statedata)
-    elif event == "delete_node":
-        delete_handler(statedata)
-    elif event == "create_link":
-        link_handler(statedata)
+#########################################################
+# 🔥 🔥 🔥 🔥 🔥    The Pulsinator    🔥 🔥 🔥 🔥 🔫
+#########################################################
 
-def websocket_background_thread():
-    state["active"] = True
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(
-        client.subscribe(
-            query=state.get("query"), 
-            handle=callback
+def log(string):
+    # print (string)
+    return string
+
+def pulse_query(id, resource, status):
+    if (status != None):
+        retval = log (
+            gfs_gqlclient.update(
+                resource = resource, 
+                arguments = {
+                    "id": "String!", 
+                    "status": "String", 
+                    "lastPulseModifiedTime": "Int",
+                    'lastAgentUpdateID': 'String'
+                },
+                variables = {
+                    "id": id, 
+                    "status": status,
+                    "lastPulseModifiedTime": current_sec_time(),
+                    "lastAgentUpdateID": AGENT_ID
+                }, 
+                fields = [
+                    "id", 
+                    "status", 
+                    "lastStatusModifiedTime",
+                    "lastPulseModifiedTime"
+                ]
+            )
         )
-    )
-    state["active"] = False
+    else:
+        retval = log (
+            gfs_gqlclient.update(
+                resource = resource, 
+                arguments = {
+                    "id": "String!", 
+                    "lastPulseModifiedTime": "Int",
+                    'lastAgentUpdateID': 'String'
+                },
+                variables = {
+                    "id": id, 
+                    "lastPulseModifiedTime": current_sec_time(),
+                    "lastAgentUpdateID": AGENT_ID
+                }, 
+                fields = [
+                    "id", 
+                    "status", 
+                    "lastStatusModifiedTime",
+                    "lastPulseModifiedTime"
+                ]
+            )
+        )
+    return retval
 
-def launch_websocket_background_thread():
-    global websocket_thread
-    with websocket_thread_lock:
-        if websocket_thread is None:
-            websocket_thread = socketio.start_background_task(websocket_background_thread)
+tick = 0
+def poll(response):
+    global tick 
+    tick = tick + 1
 
-launch_websocket_background_thread()
+    status_not_found = 0
 
-@app.route('/')
-def index():
-    status = "danger"
-    if state.get("active", False):
-        status = "success"
-    return render_template(
-        'index.html', 
-        # state = state, 
-        GFSHOST = state.get("GFSHOST"), 
-        GFSPORT = state.get("GFSPORT"), 
-        type = state.get("type", TYPE), 
-        active = state.get("active", False), 
-        status = status, 
-        models = state.get("models", []), 
-        async_mode = socketio.async_mode
-    )
+    types = response
 
-@socketio.event
-def fromclient(message):
-    emit('response', {
-        'data': 'Received from client: ' + message['data']
-    }
-)
+    print ("")
+    # print ("---[" + str(tick) + " @ " + tstamp + "] ------------------------------------")
 
-@socketio.event
-def disconnect_request():
+    for type in types:
+        log ("name: " + type['name'])
 
-    def can_disconnect():
-        disconnect()
+        # instances_retval = requests.get(
+        #     GET_INSTANCES_BY_TYPE.format(
+        #         type=type['name']
+        #     ), 
+        #     verify=False
+        # )
 
-    # for this emit we use a callback function
-    # when the callback function is invoked we know that the message has been
-    # received and it is safe to disconnect
-    emit(
-        'response', {
-            'data': 'Disconnect!'
-        },
-        callback=can_disconnect
-    )
+        instances_retval = {}
+        try:
+            instances_retval = gfs_gqlclient.query(
+                resource = type['name'], # "type", 
+                fields = [
+                    "id", 
+                    "name", 
+                    "label", 
+                    "status", 
+                    "lastStatusModifiedTime", 
+                    "statusTimeoutSecs", 
+                    "lastPulseModifiedTime", 
+                    "step", 
+                    "lastAgentUpdateID"
+                ]
+            )
+        except Exception as e:
+            instances_retval = {}
 
-@socketio.event
-def connect():
-    # 
-    emit(
-        'response', {
-            'data': 'Connect'
-        }
-    )
 
-@socketio.on('disconnect')
-def test_disconnect():
-    print('Client disconnected')
+        instances_vertex_dict = instances_retval # json.loads(instances_retval.content)
+        # API vertex endpoint returns instances OR 'message':'notfound' then skip --
+        # if 'message' in instances_vertex_dict:
+        #     continue
 
-if __name__ == '__main__':
-    client = GraphqlClient(
-        endpoint=state.get("endpoint")
-    )
-    socketio.run(app, host=LISTENERADDR, port=LISTENERPORT)
+        for instance in instances_vertex_dict:
+            # instance = instance.get('@value', {}).get('properties', {})
+            log (str(tick) + " Candidate: {name}".format(name = instance.get('name')))
+            log (instance)
+
+            if not 'status' in instance:
+                log ("No status property found in '{name}', skipping.".format(name = instance.get('name')))
+                status_not_found = status_not_found + 1
+                continue
+            status = instance['status']
+            if (status == STATUS_UP_SYNCRONIZED):  
+                status_output = "🟩 UP"
+            elif (status == STATUS_LAGGING_UPDATE):
+                status_output = "⚠️  LAGGING"
+            elif (status == STATUS_FAILING):
+                status_output = "🤬 FAILING"
+            else: 
+                status_output = status + " UKNOWN STATE"
+
+            tstamp = time.strftime('%X %x %Z')
+            id = instance.get('id') # , {}).get('@value')            
+            status_timeout = int(instance.get('statusTimeoutSecs', 0)) # , {}).get('@value', 0))
+            pulse_delta_secs = current_sec_time() - int(instance.get('lastPulseModifiedTime', 0)) # , {}).get('@value', 0))
+            status_delta_secs = current_sec_time() - int(instance.get('lastStatusModifiedTime', 0)) # , {}).get('@value', 0))
+            step = int(instance.get('step', 0)) # , {}).get('@value', 0))
+ 
+            print ("---[" + str(tick) + " @ " + tstamp + "]--[ status-less GFS instances: " + str(status_not_found) + " ]-------------------------------")
+            print ("🔭   [ current: " + status_output + " ]   " + instance.get('name') + "  [ " + str(type['name']) + " ]")
+            print ("      [ 💓 last pulse: " + str(pulse_delta_secs) + "s ] [ 💤 step: " + str(step) + "s ] [ △ last status: " + str(status_delta_secs) + "s ] [ ⏰  timeout: " + str(status_timeout) +"s ]")
+
+            # skip if the step time is larger than the time 
+            # elapsed since last pulse, or if its already failing to 
+            # shortcut recovery time
+            if ((pulse_delta_secs < step) and (status != STATUS_FAILING) and (status != STATUS_LAGGING_UPDATE)):
+                print ("  💤  Not pulsing ... (following step delay: " + str(step - pulse_delta_secs) + "s remaining)")
+                print ('')
+                continue
+            else:
+                print ("   〽️ Pulsing     ...")
+
+            pulse = None
+            if (status_delta_secs >= status_timeout):
+                # exceeded timeout, the agent has failed us all.
+                print ("      --> Updating: status = " + STATUS_FAILING + " and lastPulseModifiedTime")
+                status = STATUS_FAILING
+                try:
+                    pulse = pulse_query(
+                        id=id, 
+                        resource=instance.get('label'), # _type['name'], 
+                        status=status)
+                except Exception as e:
+                    print ("      --> Updating: status = " + STATUS_FAILING + " and lastPulseModifiedTime FAILED ")
+                    print(e)
+            elif (status_delta_secs > (step * STEP_CALC_PAD_FACTOR)):
+                # exceeded timeout, the agent has failed us all.
+                print ("      --> Updating: status = " + STATUS_LAGGING_UPDATE + " and lastPulseModifiedTime")
+                status = STATUS_LAGGING_UPDATE
+                try:
+                    pulse = pulse_query(
+                        id=id, 
+                        resource=instance.get('label'), # _type['name'], 
+                        status=status)
+                except Exception as e:
+                    print ("      --> Updating: status = " + STATUS_LAGGING_UPDATE + " and lastPulseModifiedTime FAILED ")
+                    print(e)
+            else:
+                print ("      --> Updating lastPulseModifiedTime")
+                try:
+                    pulse = pulse_query(
+                        id=id, 
+                        resource=instance.get('label'), # _type['name'], 
+                        status=None)
+                except Exception as e:
+                    print ("      --> Updating lastPulseModifiedTime FAILED ")
+                    print(e)
+            # print ("      " + str(pulse))
+            print ('')
+
+    # print ("Status not found on #nodes: " + str(status_not_found))
+    status_not_found = 0
+    return False
+
+def pulse_worker(query):
+    try:
+        polling2.poll(
+            lambda: gfs_gqlclient.query(
+                resource = "type", 
+                fields = [
+                    "id", 
+                    "name"
+                ]
+            ),
+            check_success=poll,
+            step=PULSE_POLL_STEP,
+            poll_forever=True
+        )
+    except polling2.TimeoutException as te:
+        while not te.values.empty():
+        # Print all of the values that did not meet the exception
+            print (te.values.get())
+    return
+
+threads = []
+def thread_launcher():
+    t = threading.Thread(target=pulse_worker, args=("",))
+    threads.append(t)
+    t.start()
+
+thread_launcher()
