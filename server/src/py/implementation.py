@@ -227,24 +227,36 @@ def poll(response):
                 # exceeded timeout, the agent has failed us all.
                 print ("      --> Updating: status = " + STATUS_FAILING + " and lastPulseModifiedTime")
                 status = STATUS_FAILING
-                pulse = pulse_query(
-                    id=id, 
-                    resource=instance.get('label'), # type['name'], 
-                    status=status)
+                try:
+                    pulse = pulse_query(
+                        id=id, 
+                        resource=instance.get('label'), # _type['name'], 
+                        status=status)
+                except Exception as e:
+                    print ("      --> Updating: status = " + STATUS_FAILING + " and lastPulseModifiedTime FAILED ")
+                    print(e)
             elif (status_delta_secs > (step * STEP_CALC_PAD_FACTOR)):
                 # exceeded timeout, the agent has failed us all.
                 print ("      --> Updating: status = " + STATUS_LAGGING_UPDATE + " and lastPulseModifiedTime")
                 status = STATUS_LAGGING_UPDATE
-                pulse = pulse_query(
-                    id=id, 
-                    resource=instance.get('label'), # type['name'], 
-                    status=status)
+                try:
+                    pulse = pulse_query(
+                        id=id, 
+                        resource=instance.get('label'), # _type['name'], 
+                        status=status)
+                except Exception as e:
+                    print ("      --> Updating: status = " + STATUS_LAGGING_UPDATE + " and lastPulseModifiedTime FAILED ")
+                    print(e)
             else:
                 print ("      --> Updating lastPulseModifiedTime")
-                pulse = pulse_query(
-                    id=id, 
-                    resource=instance.get('label'), # type['name'], 
-                    status=None)
+                try:
+                    pulse = pulse_query(
+                        id=id, 
+                        resource=instance.get('label'), # _type['name'], 
+                        status=None)
+                except Exception as e:
+                    print ("      --> Updating lastPulseModifiedTime FAILED ")
+                    print(e)
             # print ("      " + str(pulse))
             print ('')
 
