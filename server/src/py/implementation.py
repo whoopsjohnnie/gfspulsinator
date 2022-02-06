@@ -36,8 +36,8 @@ STEP_CALC_PAD_FACTOR = 1.5
 
 # GFSAPI_HOST = "192.168.86.59" # "192.168.0.160"
 # GFSAPI_PORT = 5000
-GFSAPI_HOST = os.getenv('GFSAPI_HOST')
-GFSAPI_PORT = os.getenv('GFSAPI_PORT')
+GFSAPI_HOST = os.getenv('GFSAPI_HOST', "gfsapi")
+GFSAPI_PORT = os.getenv('GFSAPI_PORT', "5000")
 
 # GFSAPI = "https://" + GFSAPI_HOST + ":" + str(GFSAPI_PORT)
 GFSAPI = "http://" + GFSAPI_HOST + ":" + str(GFSAPI_PORT)
@@ -149,19 +149,41 @@ def poll(response):
 
     for type in types:
         log ("name: " + type['name'])
-        instances_retval = requests.get(
-            GET_INSTANCES_BY_TYPE.format(
-                type=type['name']
-            ), 
-            verify=False
-        )
-        instances_vertex_dict = json.loads(instances_retval.content)
+
+        # instances_retval = requests.get(
+        #     GET_INSTANCES_BY_TYPE.format(
+        #         type=type['name']
+        #     ), 
+        #     verify=False
+        # )
+
+        instances_retval = {}
+        try:
+            instances_retval = gfs_gqlclient.query(
+                resource = type['name'], # "type", 
+                fields = [
+                    "id", 
+                    "name", 
+                    "label", 
+                    "status", 
+                    "lastStatusModifiedTime", 
+                    "statusTimeoutSecs", 
+                    "lastPulseModifiedTime", 
+                    "step", 
+                    "lastAgentUpdateID"
+                ]
+            )
+        except Exception as e:
+            instances_retval = {}
+
+
+        instances_vertex_dict = instances_retval # json.loads(instances_retval.content)
         # API vertex endpoint returns instances OR 'message':'notfound' then skip --
-        if 'message' in instances_vertex_dict:
-            continue
+        # if 'message' in instances_vertex_dict:
+        #     continue
 
         for instance in instances_vertex_dict:
-            instance = instance.get('@value', {}).get('properties', {})
+            # instance = instance.get('@value', {}).get('properties', {})
             log (str(tick) + " Candidate: {name}".format(name = instance.get('name')))
             log (instance)
 
@@ -180,11 +202,11 @@ def poll(response):
                 status_output = status + " UKNOWN STATE"
 
             tstamp = time.strftime('%X %x %Z')
-            id = instance.get('id', {}).get('@value')            
-            status_timeout = int(instance.get('statusTimeoutSecs', {}).get('@value', 0))
-            pulse_delta_secs = current_sec_time() - int(instance.get('lastPulseModifiedTime', {}).get('@value', 0))
-            status_delta_secs = current_sec_time() - int(instance.get('lastStatusModifiedTime', {}).get('@value', 0))
-            step = int(instance.get('step', {}).get('@value', 0))
+            id = instance.get('id') # , {}).get('@value')            
+            status_timeout = int(instance.get('statusTimeoutSecs', 0)) # , {}).get('@value', 0))
+            pulse_delta_secs = current_sec_time() - int(instance.get('lastPulseModifiedTime', 0)) # , {}).get('@value', 0))
+            status_delta_secs = current_sec_time() - int(instance.get('lastStatusModifiedTime', 0)) # , {}).get('@value', 0))
+            step = int(instance.get('step', 0)) # , {}).get('@value', 0))
  
             print ("---[" + str(tick) + " @ " + tstamp + "]--[ status-less GFS instances: " + str(status_not_found) + " ]-------------------------------")
             print ("🔭   [ current: " + status_output + " ]   " + instance.get('name') + "  [ " + str(type['name']) + " ]")
@@ -207,7 +229,7 @@ def poll(response):
                 status = STATUS_FAILING
                 pulse = pulse_query(
                     id=id, 
-                    resource=type['name'], 
+                    resource=instance.get('label'), # type['name'], 
                     status=status)
             elif (status_delta_secs > (step * STEP_CALC_PAD_FACTOR)):
                 # exceeded timeout, the agent has failed us all.
@@ -215,13 +237,13 @@ def poll(response):
                 status = STATUS_LAGGING_UPDATE
                 pulse = pulse_query(
                     id=id, 
-                    resource=type['name'], 
+                    resource=instance.get('label'), # type['name'], 
                     status=status)
             else:
                 print ("      --> Updating lastPulseModifiedTime")
                 pulse = pulse_query(
                     id=id, 
-                    resource=type['name'], 
+                    resource=instance.get('label'), # type['name'], 
                     status=None)
             # print ("      " + str(pulse))
             print ('')

@@ -35,8 +35,8 @@ websocket_thread_lock = Lock()
 # GFSAPI_HOST = "192.168.0.216" # "192.168.0.160"
 # #GFSHOST = "localhost" # "192.168.0.160"
 # GFSAPI_PORT = 5000
-GFSAPI_HOST = os.getenv('GFSAPI_HOST')
-GFSAPI_PORT = os.getenv('GFSAPI_PORT')
+GFSAPI_HOST = os.getenv('GFSAPI_HOST', "gfsapi")
+GFSAPI_PORT = os.getenv('GFSAPI_PORT', "5000")
 
 TYPE = ""
 
