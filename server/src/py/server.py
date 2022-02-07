@@ -150,6 +150,25 @@ def poll(response):
     for type in types:
         log ("name: " + type['name'])
 
+        valid = False
+        if "properties" in type:
+            # if "status" in type.get("properties", {}) and \
+            #     "lastStatusModifiedTime" in type.get("properties", {}) and \
+            #     "statusTimeoutSecs" in type.get("properties", {}) and \
+            #     "lastPulseModifiedTime" in type.get("properties", {}) and \
+            #     "step" in type.get("properties", {}) and \
+            #     "lastAgentUpdateID" in type.get("properties", {}):
+            if {"name": "status", "type": "string"} in type.get("properties", []) and \
+                {"name": "lastStatusModifiedTime", "type": "integer"} in type.get("properties", []) and \
+                {"name": "statusTimeoutSecs", "type": "integer"} in type.get("properties", []) and \
+                {"name": "lastPulseModifiedTime", "type": "integer"} in type.get("properties", []) and \
+                {"name": "step", "type": "integer"} in type.get("properties", []) and \
+                {"name": "lastAgentUpdateID", "type": "string"} in type.get("properties", []):
+                valid = True
+
+        if not valid:
+            continue
+
         # instances_retval = requests.get(
         #     GET_INSTANCES_BY_TYPE.format(
         #         type=type['name']
@@ -269,10 +288,15 @@ def pulse_worker(query):
         polling2.poll(
             lambda: gfs_gqlclient.query(
                 resource = "type", 
-                fields = [
-                    "id", 
-                    "name"
-                ]
+                fields = {
+                    "id": "id", 
+                    "name": "name", 
+                    "typelabel": "typelabel", 
+                    "properties": {
+                        "name": "name",
+                        "type": "type"
+                    }
+                }
             ),
             check_success=poll,
             step=PULSE_POLL_STEP,
