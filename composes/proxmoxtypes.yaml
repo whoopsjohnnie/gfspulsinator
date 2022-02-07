@@ -17,8 +17,8 @@ types:
       icon: string
 # status endpoint props start.
       cpuinfo: string
-      cpu: string
-      memory: string
+      cpu: integer # string
+      memory: integer # string
       swap: string
       uptime: string
       loadavg: string
@@ -135,7 +135,7 @@ types:
       onboot: string
       boot: string
 # proxmox API /qemu item bound
-      cpus: string
+      cpus: integer # string
       uptime: string
       pid: string
       digest: string
@@ -285,7 +285,7 @@ types:
     extends: '#ProxmoxBaseVM'
     property:
       name: string
-      template: string
+      template: integer # string
     required:
       - name
       - template

@@ -16,6 +16,11 @@ ProxmoxNodes:
       statusTimeoutSecs: 30
       step: 10
       primaryIp: "192.168.86.201"
+      arch: "x86_64"
+      cpus: 1
+      cores: 1
+      memory: 2048
+      ht: "ht"
 
 ProxmoxVMTemplates:
   centos8-template-v2:
@@ -39,17 +44,21 @@ ProxmoxVMTemplates:
       vmgenid: 5cdeb801-04bd-480b-b3c8-28669cda8ea4
       # vmid: "100"
       vmId: "100"
+      arch: "x86_64"
+      cpus: 1
+      ht: "ht"
+
 
   debian-10.6.0-template-johns:
     data:
       # status: "PENDING"
       # statusTimeoutSecs: 3
       bootdisk: "scsi0"
-      cores: "4"
-      sockets: "1"
-      memory: "2048"
-      template: "1"
-      numa: "0"
+      cores: 4 # "4"
+      sockets: 1 # "1"
+      memory: 2048 # "2048"
+      template: 1 # "1"
+      numa: 0 # "0"
       ostype: "l26"
       arch: "x86_64"
       ide2: "none,media=cdrom"
@@ -61,20 +70,23 @@ ProxmoxVMTemplates:
       vmId: "10001"
       smbios1: "uuid=beb1ac2d-e543-47d3-a0ca-c4040b07b8a2"
       vmgenid: "488bbd1a-2ec4-4187-a194-8330004d7207"
+      # arch: "x86_64"
+      cpus: 1
+      ht: "ht"
 
 ProxmoxMachines:
   cp10000:
     data:
       status: "PENDING"
       statusTimeoutSecs: 3
-      memory: "8192"
+      memory: 8192 # "8192"
       arch: "x86_64"
       bootdisk: "oneofum"
-      cores: "4"
-      memory: "2048"
-      numa: "0"
+      cores: 4 # "4"
+      memory: 2048 # "2048"
+      numa: 0 #"0"
       ostype: "l26"
-      sockets: "1"
+      sockets: 1 # "1"
       CloneOf:
         "#centos8-template"
 
@@ -82,13 +94,13 @@ ProxmoxMachines:
     data:
       status: "PENDING"
       statusTimeoutSecs: 3
-      memory: "8192"
+      memory: 8192 # "8192"
       arch: "x86_64"
       bootdisk: "oneofum"
-      cores: "4"
-      memory: "2048"
-      numa: "0"
+      cores: 4 # "4"
+      memory: 2048 # "2048"
+      numa: 0 #"0"
       ostype: "l26"
-      sockets: "1"
+      sockets: 1 # "1"
       CloneOf:
         "#centos8-template"

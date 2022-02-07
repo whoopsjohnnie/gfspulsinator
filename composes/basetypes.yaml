@@ -4,7 +4,8 @@
 
 ---
 version: "1.0"
-types:
+
+interfaces:
 
 ################ TO BE AT SOME POINT A COMMON LIBRARY
 ## INTERFACES
@@ -36,6 +37,8 @@ types:
       sockets: string
       numa: string
       ostype: string
+
+types:
 
 ## TYPES 
   Base:
