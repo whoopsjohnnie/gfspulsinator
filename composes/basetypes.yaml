@@ -15,10 +15,10 @@ interfaces:
     property: 
       name: string
       status: string
-      lastStatusModifiedTime: integer # string # integer
-      statusTimeoutSecs: integer # string # integer
-      lastPulseModifiedTime: integer # string # integer
-      step: integer # string # integer
+      lastStatusModifiedTime: integer
+      statusTimeoutSecs: integer
+      lastPulseModifiedTime: integer
+      step: integer
       lastAgentUpdateID: string
 
   # Discoverable:
@@ -32,10 +32,10 @@ interfaces:
     version: 1
     property: 
       bootdisk: string
-      cores: string
-      memory: string
-      sockets: string
-      numa: string
+      cores: integer # string
+      memory: integer # string
+      sockets: integer # string
+      numa: integer # string
       ostype: string
 
 types:
@@ -53,9 +53,9 @@ types:
     property:
       name: string
       arch: string
-      memory: string
-      cpus: string
-      cores: string
+      memory: integer # string
+      cpus: integer # string
+      cores: integer # string
       ht: string
       diskController0: string
       diskDevice0: string
