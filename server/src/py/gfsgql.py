@@ -352,7 +352,8 @@ class GFSGQL():
                     instance {
                         %s
                     },
-                    ok
+                    ok,
+                    error
                 }
             }
         """ % (

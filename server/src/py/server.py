@@ -34,13 +34,23 @@ STATUS_LAGGING_UPDATE = "LAGGING"
 
 STEP_CALC_PAD_FACTOR = 1.5
 
-# GFSAPI_HOST = "192.168.86.59" # "192.168.0.160"
-# GFSAPI_PORT = 5000
-GFSAPI_HOST = os.getenv('GFSAPI_HOST', "gfsapi")
-GFSAPI_PORT = os.getenv('GFSAPI_PORT', "5000")
+listen_addr = os.environ.get("LISTEN_ADDR", "0.0.0.0")
+listen_port = os.environ.get("LISTEN_PORT", "5005")
+
+gfs_ns = os.environ.get("GFS_NAMESPACE", "gfs1")
+gfs_host = os.environ.get("GFS_HOST", "gfsapi")
+gfs_port = os.environ.get("GFS_PORT", "5000")
+gfs_username = os.environ.get("GFS_USERNAME", "root")
+gfs_password = os.environ.get("GFS_PASSWORD", "root")
+
+# TODO: What to do about this?
+GFSAPI_NS = gfs_ns # 
+GFSAPI_HOST = gfs_host # os.getenv('GFSAPI_HOST')
+GFSAPI_PORT = gfs_port # os.getenv('GFSAPI_PORT')
 
 # GFSAPI = "https://" + GFSAPI_HOST + ":" + str(GFSAPI_PORT)
 GFSAPI = "http://" + GFSAPI_HOST + ":" + str(GFSAPI_PORT)
+print(GFSAPI)
 
 gfs_gqlclient = GFSGQL(
     gfs_host = GFSAPI_HOST, # gfs_host,
@@ -72,11 +82,11 @@ def link_handler(statedata):
 # 🧐 🧐 🧐 🧐         Queries           🧐 🧐 🧐 🧐
 #########################################################
 
-GET_INSTANCES_BY_TYPE = GFSAPI + "/api/v1.0/gfs1/vertex?label={type}"
-GFSAPI_TEMPLATE_URL = GFSAPI + "/api/v1.0/gfs1/context/{GFSID}"
-GFSAPI_ALL_NODES_URL = GFSAPI + "/api/v1.0/gfs1/graph"
-GFSAPI_ALL_INSTANCES_OF_TYPE = GFSAPI + "/api/v1.0/gfs1/vertex?label={type}"
-GFSAPI_GRAPHQL_URL = GFSAPI + "/gfs1/graphql"
+# GET_INSTANCES_BY_TYPE = GFSAPI + "/api/v1.0/gfs1/vertex?label={type}"
+# GFSAPI_TEMPLATE_URL = GFSAPI + "/api/v1.0/gfs1/context/{GFSID}"
+# GFSAPI_ALL_NODES_URL = GFSAPI + "/api/v1.0/gfs1/graph"
+# GFSAPI_ALL_INSTANCES_OF_TYPE = GFSAPI + "/api/v1.0/gfs1/vertex?label={type}"
+# GFSAPI_GRAPHQL_URL = GFSAPI + "/gfs1/graphql"
 
 #########################################################
 # 🔥 🔥 🔥 🔥 🔥    The Pulsinator    🔥 🔥 🔥 🔥 🔫
@@ -139,31 +149,39 @@ tick = 0
 def poll(response):
     global tick 
     tick = tick + 1
+    tstamp = time.strftime('%X %x %Z')
 
     status_not_found = 0
 
-    types = response
+    types = None
+    # if type(response) in [list, tuple]:
+    if type(response) in (tuple, list):
+        types = response
+    else:
+        types = [response]
 
     print ("")
-    # print ("---[" + str(tick) + " @ " + tstamp + "] ------------------------------------")
+    print ("")
+    print ("---[" + str(tick) + " @ " + tstamp + "] ------------------------------------")
+    print ("")
 
-    for type in types:
-        log ("name: " + type['name'])
+    for _type in types:
+        log ("name: " + _type['name'])
 
         valid = False
-        if "properties" in type:
-            # if "status" in type.get("properties", {}) and \
-            #     "lastStatusModifiedTime" in type.get("properties", {}) and \
-            #     "statusTimeoutSecs" in type.get("properties", {}) and \
-            #     "lastPulseModifiedTime" in type.get("properties", {}) and \
-            #     "step" in type.get("properties", {}) and \
-            #     "lastAgentUpdateID" in type.get("properties", {}):
-            if {"name": "status", "type": "string"} in type.get("properties", []) and \
-                {"name": "lastStatusModifiedTime", "type": "integer"} in type.get("properties", []) and \
-                {"name": "statusTimeoutSecs", "type": "integer"} in type.get("properties", []) and \
-                {"name": "lastPulseModifiedTime", "type": "integer"} in type.get("properties", []) and \
-                {"name": "step", "type": "integer"} in type.get("properties", []) and \
-                {"name": "lastAgentUpdateID", "type": "string"} in type.get("properties", []):
+        if "properties" in _type:
+            # if "status" in _type.get("properties", {}) and \
+            #     "lastStatusModifiedTime" in _type.get("properties", {}) and \
+            #     "statusTimeoutSecs" in _type.get("properties", {}) and \
+            #     "lastPulseModifiedTime" in _type.get("properties", {}) and \
+            #     "step" in _type.get("properties", {}) and \
+            #     "lastAgentUpdateID" in _type.get("properties", {}):
+            if {"name": "status", "type": "string"} in _type.get("properties", []) and \
+                {"name": "lastStatusModifiedTime", "type": "integer"} in _type.get("properties", []) and \
+                {"name": "statusTimeoutSecs", "type": "integer"} in _type.get("properties", []) and \
+                {"name": "lastPulseModifiedTime", "type": "integer"} in _type.get("properties", []) and \
+                {"name": "step", "type": "integer"} in _type.get("properties", []) and \
+                {"name": "lastAgentUpdateID", "type": "string"} in _type.get("properties", []):
                 valid = True
 
         if not valid:
@@ -171,15 +189,16 @@ def poll(response):
 
         # instances_retval = requests.get(
         #     GET_INSTANCES_BY_TYPE.format(
-        #         type=type['name']
+        #         type=_type['name']
         #     ), 
         #     verify=False
         # )
 
-        instances_retval = {}
+        instances = []
         try:
-            instances_retval = gfs_gqlclient.query(
-                resource = type['name'], # "type", 
+            # instances_retval = gfs_gqlclient.query(
+            instances = gfs_gqlclient.query(
+                resource = _type['name'], # "type", 
                 fields = [
                     "id", 
                     "name", 
@@ -193,15 +212,18 @@ def poll(response):
                 ]
             )
         except Exception as e:
-            instances_retval = {}
+            print(e)
+            instances = []
 
-
-        instances_vertex_dict = instances_retval # json.loads(instances_retval.content)
+        # instances_vertex_dict = instances # json.loads(instances_retval) # .content)
         # API vertex endpoint returns instances OR 'message':'notfound' then skip --
-        # if 'message' in instances_vertex_dict:
+        # if 'message' in instances: # instances_vertex_dict:
         #     continue
 
-        for instance in instances_vertex_dict:
+        if not instances:
+            continue
+
+        for instance in instances: # instances_vertex_dict:
             # instance = instance.get('@value', {}).get('properties', {})
             log (str(tick) + " Candidate: {name}".format(name = instance.get('name')))
             log (instance)
@@ -220,7 +242,7 @@ def poll(response):
             else: 
                 status_output = status + " UKNOWN STATE"
 
-            tstamp = time.strftime('%X %x %Z')
+            # tstamp = time.strftime('%X %x %Z')
             id = instance.get('id') # , {}).get('@value')            
             status_timeout = int(instance.get('statusTimeoutSecs', 0)) # , {}).get('@value', 0))
             pulse_delta_secs = current_sec_time() - int(instance.get('lastPulseModifiedTime', 0)) # , {}).get('@value', 0))
@@ -228,7 +250,7 @@ def poll(response):
             step = int(instance.get('step', 0)) # , {}).get('@value', 0))
  
             print ("---[" + str(tick) + " @ " + tstamp + "]--[ status-less GFS instances: " + str(status_not_found) + " ]-------------------------------")
-            print ("🔭   [ current: " + status_output + " ]   " + instance.get('name') + "  [ " + str(type['name']) + " ]")
+            print ("🔭   [ current: " + status_output + " ]   " + instance.get('name') + "  [ " + instance.get('label') + " ]" + " [ " + instance.get('id') + " ]")
             print ("      [ 💓 last pulse: " + str(pulse_delta_secs) + "s ] [ 💤 step: " + str(step) + "s ] [ △ last status: " + str(status_delta_secs) + "s ] [ ⏰  timeout: " + str(status_timeout) +"s ]")
 
             # skip if the step time is larger than the time 
@@ -241,16 +263,18 @@ def poll(response):
             else:
                 print ("   〽️ Pulsing     ...")
 
-            pulse = None
+            # pulse = None
             if (status_delta_secs >= status_timeout):
                 # exceeded timeout, the agent has failed us all.
                 print ("      --> Updating: status = " + STATUS_FAILING + " and lastPulseModifiedTime")
                 status = STATUS_FAILING
                 try:
-                    pulse = pulse_query(
+                    # pulse = 
+                    pulse_query(
                         id=id, 
                         resource=instance.get('label'), # _type['name'], 
-                        status=status)
+                        status=status
+                    )
                 except Exception as e:
                     print ("      --> Updating: status = " + STATUS_FAILING + " and lastPulseModifiedTime FAILED ")
                     print(e)
@@ -259,20 +283,24 @@ def poll(response):
                 print ("      --> Updating: status = " + STATUS_LAGGING_UPDATE + " and lastPulseModifiedTime")
                 status = STATUS_LAGGING_UPDATE
                 try:
-                    pulse = pulse_query(
+                    # pulse = 
+                    pulse_query(
                         id=id, 
                         resource=instance.get('label'), # _type['name'], 
-                        status=status)
+                        status=status
+                    )
                 except Exception as e:
                     print ("      --> Updating: status = " + STATUS_LAGGING_UPDATE + " and lastPulseModifiedTime FAILED ")
                     print(e)
             else:
                 print ("      --> Updating lastPulseModifiedTime")
                 try:
-                    pulse = pulse_query(
+                    # pulse = 
+                    pulse_query(
                         id=id, 
                         resource=instance.get('label'), # _type['name'], 
-                        status=None)
+                        status=None
+                    )
                 except Exception as e:
                     print ("      --> Updating lastPulseModifiedTime FAILED ")
                     print(e)
