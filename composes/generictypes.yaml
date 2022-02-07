@@ -1,0 +1,21 @@
+#
+# Proxmox Types, y'all. 
+#
+
+---
+version: "1.0"
+types:
+
+  # # Extend Machine
+  # GenericMachine:
+  #   version: 1
+  #   extends: "#Machine"
+
+  # # Extend MachineGroup
+  # GenericMachineGroup:
+  #   version: 1
+  #   extends: "#MachineGroup"
+  #   # do not override members
+  #   # property:
+  #   #   members:
+  #   #     - '#GenericMachine'

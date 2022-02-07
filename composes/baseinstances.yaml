@@ -1,0 +1,73 @@
+#
+# Proxmox Types, y'all. 
+#
+
+---
+version: "1.0"
+
+############################################
+# I N S T A N C E S 
+############################################
+# Machines:
+# MachineGroups:
+
+NetDevices:
+# External, 192.168.0/24 for controller
+  net560AFFE78095:
+    data:
+      hwaddr: 56:0A:FF:E7:80:95
+# Internal, 10.88.88/24 for controller
+  net7A80ED698A41:
+    data:
+      hwaddr: 7A:80:ED:69:8A:41
+# botnode1-pxe-boot, proxmox 2000
+  net6EC66C286FDB:
+    data:
+      hwaddr: 6E:C6:6C:28:6F:DB
+      addresses:
+        - '#devIp151'
+# botnode2-pxe-boot, proxmox 2002
+  netEE966F41299C:
+    data:
+      hwaddr: EE:96:6F:41:29:9C
+      addresses:
+        - '#devIp172'
+
+# opnsense, proxmox 100, external 192.168.0/24
+  net8646C1C11889:
+    data:
+      hwaddr: 86:46:C1:C1:18:89
+      addresses:
+        - '#devIp1'
+# pfsense, proxmox 101, external 192.168.0/24
+  net32345C248751:
+    data:
+      hwaddr: 32:34:5C:24:87:51
+
+Ips:
+  lanIp160:
+    data:
+      address: 192.168.0.160
+
+  externalIp-1-1-1-1:
+    data:
+      address: 1.1.1.1
+  externalIp-1-0-0-1:
+    data:
+      address: 1.0.0.1
+
+  devIp1:
+    data:
+      address: 10.88.88.1
+  devIp60:
+    data:
+      address: 10.88.88.60
+  devIp151:
+    data:
+      address: 10.88.88.151
+  devIp152:
+    data:
+      address: 10.88.88.152
+  devIp172:
+    data:
+      address: 10.88.88.172

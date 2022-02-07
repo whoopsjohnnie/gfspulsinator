@@ -1,0 +1,94 @@
+#
+# Proxmox Types, y'all. 
+#
+
+---
+version: "1.0"
+
+############################################
+# I N S T A N C E S 
+############################################
+ProxmoxNodes:
+  pve2:
+    data:
+      name: "pve2"
+      status: "PENDING"
+      statusTimeoutSecs: 30
+      step: 10
+      primaryIp: "192.168.86.201"
+
+ProxmoxVMTemplates:
+  centos8-template-v2:
+    data:
+      status: "PENDING"
+      statusTimeoutSecs: 12
+      step: 6
+      boot: order=scsi0;ide2;net0
+      cores: 3
+      ide2: local:iso/CentOS-8.4.2105-x86_64-boot.iso,media=cdrom
+      memory: 2048
+      name: centos8-template-v1
+      net0: virtio=2E:A5:6F:FC:FD:EF,bridge=vmbr1,firewall=1
+      numa: 0
+      ostype: l26
+      scsi0: local-lvm:base-100-disk-0,size=10G
+      scsihw: virtio-scsi-pci
+      smbios1: uuid=4d8e2eac-149c-4ef3-bb7f-cdee8b7d251b
+      sockets: 1
+      template: 1
+      vmgenid: 5cdeb801-04bd-480b-b3c8-28669cda8ea4
+      # vmid: "100"
+      vmId: "100"
+
+  debian-10.6.0-template-johns:
+    data:
+      # status: "PENDING"
+      # statusTimeoutSecs: 3
+      bootdisk: "scsi0"
+      cores: "4"
+      sockets: "1"
+      memory: "2048"
+      template: "1"
+      numa: "0"
+      ostype: "l26"
+      arch: "x86_64"
+      ide2: "none,media=cdrom"
+      scsihw: "pvscsi"
+      scsi0: "local-lvm-1TB:base-50001-disk-0,size=50G"
+      scsi1: "local-lvm-1TB:base-50001-disk-1,size=50G"
+      net0: "virtio=E6:79:9B:3F:B5:04,bridge=vmbr0"
+      # proxmoxVmID: "10001"
+      vmId: "10001"
+      smbios1: "uuid=beb1ac2d-e543-47d3-a0ca-c4040b07b8a2"
+      vmgenid: "488bbd1a-2ec4-4187-a194-8330004d7207"
+
+ProxmoxMachines:
+  cp10000:
+    data:
+      status: "PENDING"
+      statusTimeoutSecs: 3
+      memory: "8192"
+      arch: "x86_64"
+      bootdisk: "oneofum"
+      cores: "4"
+      memory: "2048"
+      numa: "0"
+      ostype: "l26"
+      sockets: "1"
+      CloneOf:
+        "#centos8-template"
+
+  cp10001:
+    data:
+      status: "PENDING"
+      statusTimeoutSecs: 3
+      memory: "8192"
+      arch: "x86_64"
+      bootdisk: "oneofum"
+      cores: "4"
+      memory: "2048"
+      numa: "0"
+      ostype: "l26"
+      sockets: "1"
+      CloneOf:
+        "#centos8-template"

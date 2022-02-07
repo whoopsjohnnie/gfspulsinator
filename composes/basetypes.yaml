@@ -1,0 +1,109 @@
+#
+# Proxmox Types, y'all. 
+#
+
+---
+version: "1.0"
+types:
+
+################ TO BE AT SOME POINT A COMMON LIBRARY
+## INTERFACES
+### 
+  Pulsable:
+    version: 1
+    property: 
+      name: string
+      status: string
+      lastStatusModifiedTime: integer # string # integer
+      statusTimeoutSecs: integer # string # integer
+      lastPulseModifiedTime: integer # string # integer
+      step: integer # string # integer
+      lastAgentUpdateID: string
+
+  # Discoverable:
+  #   version: 1
+  #   property: 
+  #     name: string
+  #     discovered: string
+  #     agentCreated: string
+
+  Discoverable:
+    version: 1
+    property: 
+      bootdisk: string
+      cores: string
+      memory: string
+      sockets: string
+      numa: string
+      ostype: string
+
+## TYPES 
+  Base:
+    version: 1
+    property: 
+      name: string
+      lastAgentUpdateID: string
+
+  Machine:
+    version: 1
+    extends: '#Base'
+    property:
+      name: string
+      arch: string
+      memory: string
+      cpus: string
+      cores: string
+      ht: string
+      diskController0: string
+      diskDevice0: string
+      diskController1: string
+      diskDevice1: string
+      diskDevice2: string
+      diskDevice3: string
+      diskDevice4: string
+      diskDevice5: string
+      diskDevice6: string
+      diskDevice7: string
+      primaryIp: string   # just a huge cheat to get things going
+      configuredInterfaces:
+        - '#NetDevice'
+      defaultInterface:
+        - '#NetDevice'
+    required:
+      - name
+      - arch
+      - memory
+      - cpus
+      - cores
+      - ht
+
+  MachineGroup:
+    version: 1
+    property:
+      name: string
+      description: string
+      members:
+        - '#Machine'
+    required:
+      - name
+      - description
+
+  NetDevice:
+    version: 1
+    property:
+      name: string
+      hwaddr: string
+      addresses:
+        - '#Ip'
+    required:
+      - name
+      - hwaddr
+
+  Ip:
+    version: 1
+    property:
+      name: string
+      address: string
+    required:
+      - name
+      - address
